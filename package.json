@@ -1,0 +1,30 @@
+{
+  "name": "dbapp",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "description": "DataBase application practice",
+  "main": "app.js",
+  "scripts": {
+    "start:dev": "cross-env NODE_ENV=development nodemon app.js",
+    "start:prod": "cross-env NODE_ENV=production node app.js",
+    "start:test": "cross-env NODE_ENV=test nodemon app.js"
+  },
+  "keywords": [
+    "nodeJS",
+    "Practice"
+  ],
+  "author": "Mustapha Salahaldeen",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "nodemon": "^3.1.10",
+    "redis": "^4.7.1",
+    "reflect-metadata": "^0.2.2",
+    "sqlite3": "^5.1.7",
+    "typeorm": "^0.3.23"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  }
+}
