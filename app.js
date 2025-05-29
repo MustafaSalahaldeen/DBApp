@@ -4,7 +4,7 @@ const booksRouter = require("./routers/book.js");
 const animesRouter = require("./routers/anime.js");
 require("dotenv").config({ path: `./config/.env.${process.env.NODE_ENV}` });
 const { connect } = require("./infrastrucutre/connection.js");
-const { AppDataSource } = require("./infrastrucutre/data-source.js");
+const { AppDataSource, connectRedis } = require("./infrastrucutre/data-source.js");
 const { createClient } = require("redis");
 const anime = require("./entities/anime.js");
 
@@ -24,6 +24,8 @@ app.set("config", {
 
 console.log(1);
 
+connectRedis();
+
 AppDataSource.initialize()
   .then(() => {
     console.log("Data Source has been initialized!");
@@ -35,7 +37,6 @@ AppDataSource.initialize()
 app.use(express.json());
 
 app.use("/book", booksRouter);
-
 app.use("/anime", animesRouter);
 
 app.listen(PORT, () => {

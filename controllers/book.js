@@ -1,31 +1,43 @@
 const { AppDataSource } = require("../infrastrucutre/data-source");
 const { validateBook, validateBookId } = require("../middleware/book");
 const bookRepository = AppDataSource.getRepository("Book");
-const { redisClient } = require("../app");
+const { client } = require("../infrastrucutre/data-source");
 
 async function getBooks(req, res) {
-  const result = await bookRepository.find();
-  await redisClient.get("books", (err, books) => {
-    if (err) {
-      console.error("Error fetching books from Redis:", err);
-      return res.status(500).json({ error: "Internal server error" });
+    try {
+        // Try to get books from Redis cache first
+        const cachedBooks = await client.get("books");
+        
+        if (cachedBooks) {
+            console.log("Books fetched from Redis cache");
+            return res.json(JSON.parse(cachedBooks));
+        }
+
+        // If not in cache, get from database
+        const books = await bookRepository.find({
+            relations: ["genre"] // Include genre information
+        });
+
+        // Cache the results
+        await client.setEx("books", 3600, JSON.stringify(books));
+        console.log("Books fetched from database and cached in Redis");
+
+        return res.json(books);
+    } catch (error) {
+        console.error("Error fetching books:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error fetching books",
+            error: error.message
+        });
     }
-    if (books) {
-      console.log("Books fetched from Redis");
-      return res.json(JSON.parse(books));
-    } else {
-      redisClient.setex("books", 3600, JSON.stringify(result));
-      console.log("Books fetched from database and cached in Redis");
-    }
-  });
-  res.json(result);
 }
 
 async function getBookById(req, res) {
   try {
     const searchParam = req.params.searchParam;
     const param = validateBookId(searchParam);
-    await redisClient.get(`book/${searchParam}`, async (err, book) => {
+    await client.get(`book/${searchParam}`, async (err, book) => {
       if (err) {
         console.error("Error fetching book from Redis:", err);
         return res.status(500).json({ error: "Internal server error" });
@@ -47,7 +59,7 @@ async function getBookById(req, res) {
           result = { error: "Book not found" };
           res.status(404).json(result);
         }
-        redisClient.setex(`book/${searchParam}`, 3600, JSON.stringify(result));
+        client.setEx(`book/${searchParam}`, 3600, JSON.stringify(result));
       }
     });
   } catch (error) {

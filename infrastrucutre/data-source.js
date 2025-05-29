@@ -3,7 +3,7 @@ const { DataSource } = require("typeorm");
 const dbConfig = require("../config/ormconfig");
 const redis = require("redis");
 
-const client = redis.createClient();
+const client = redis.createClient({url: "redis://localhost:6379"});
 
 const AppDataSource = new DataSource(dbConfig); //database
 
