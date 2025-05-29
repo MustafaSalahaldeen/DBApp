@@ -1,70 +1,32 @@
 const { AppDataSource } = require("../infrastrucutre/data-source");
 const { validateBook, validateBookId } = require("../middleware/book");
 const bookRepository = AppDataSource.getRepository("Book");
-const { client } = require("../infrastrucutre/data-source");
+const { getRedisData, setRedisData } = require("../middleware/redis");
 
 async function getBooks(req, res) {
-    try {
-        // Try to get books from Redis cache first
-        const cachedBooks = await client.get("books");
-        
-        if (cachedBooks) {
-            console.log("Books fetched from Redis cache");
-            return res.json(JSON.parse(cachedBooks));
-        }
-
-        // If not in cache, get from database
-        const books = await bookRepository.find({
-            relations: ["genre"] // Include genre information
-        });
-
-        // Cache the results
-        await client.setEx("books", 3600, JSON.stringify(books));
-        console.log("Books fetched from database and cached in Redis");
-
-        return res.json(books);
-    } catch (error) {
-        console.error("Error fetching books:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Error fetching books",
-            error: error.message
-        });
-    }
+  try {
+    const cachedBooks = await getRedisData("Book");
+    res.json(JSON.parse(cachedBooks));
+  } catch (e) {
+    const dbBooks = bookRepository.find({ relations: ["genre"] });
+    res.json(dbBooks);
+    await setRedisData("Book", dbBooks);
+  }
 }
 
 async function getBookById(req, res) {
+  const searchParam = req.params.searchParam;
+  const param = validateBookId(searchParam);
+  console.log(`${param} : ${searchParam}`);
   try {
-    const searchParam = req.params.searchParam;
-    const param = validateBookId(searchParam);
-    await client.get(`book/${searchParam}`, async (err, book) => {
-      if (err) {
-        console.error("Error fetching book from Redis:", err);
-        return res.status(500).json({ error: "Internal server error" });
-      }
-      if (book) {
-        console.log("Book fetched from Redis");
-        return res.json(JSON.parse(book));
-      }
-      if (!book) {
-        console.log("Book not found in Redis, fetching from database");
-        const result = await bookRepository.findOneBy(
-          param == "id"
-            ? { id: searchParam }
-            : { title: searchParam.substring(1, searchParam.length - 1) }
-        );
-        if (result) {
-          res.json(result);
-        } else {
-          result = { error: "Book not found" };
-          res.status(404).json(result);
-        }
-        client.setEx(`book/${searchParam}`, 3600, JSON.stringify(result));
-      }
-    });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-    return;
+    const cachedBook = await getRedisData(`Book_${searchParam}`);
+    res.json(JSON.parse(cachedBook));
+  } catch (e) {
+    const dbBook = await bookRepository.find(
+      param == "id" ? { id: searchParam } : { title: searchParam }
+    );
+    res.json(dbBook);
+    await setRedisData(`Book_${searchParam}`, dbBook);
   }
 }
 

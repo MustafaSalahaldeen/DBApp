@@ -1,50 +1,53 @@
-const {
-  AppDataSource,
-  connectRedis,
-  client,
-} = require("../infrastrucutre/data-source");
-const { validateanime, validateAnimeId } = require("../middleware/anime");
-const { get } = require("../routers/anime");
-const { getRedisData, setRedisData } = require("./redis");
+const { AppDataSource, client } = require("../infrastrucutre/data-source");
+const { validateAnime, validateAnimeId } = require("../middleware/anime");
 const animeRepository = AppDataSource.getRepository("Anime");
+const {getRedisData , setRedisData} = require("../middleware/redis");
 
 async function getAnime(req, res) {
-  let result = {};
+  //Search in the cahce for the required data
   try {
-    result = getRedisData("anime");
-  } catch (error) {
-    result = await animeRepository.find();
-    setRedisData("anime", result);
-  } finally {
-    await client.quit();
+    const cachedAnimes = await getRedisData("Anime");
+    res.json(JSON.parse(cachedAnimes));
+  } catch (e) {
+    const dbAnimes = await animeRepository.find({ relations: ["genre"] });
+    console.log("Im here");
+    await setRedisData("Anime", dbAnimes);
+    res.json(dbAnimes);
   }
-  res.json(result);
 }
 
 async function getAnimeById(req, res) {
-  const searchParam = validateAnimeId(req.params.searchParam);
-  let result = {};
+  //Search in the cahce for the required data
+  const searchParam = req.params.searchParam;
+  const param = validateAnimeId(searchParam);
   try {
-    result = getRedisData(`anime_${searchParam}`);
-  } catch (error) {
-    result = await animeRepository.findOneBy(
-      searchParam == "id"
-        ? { id: req.params.searchParam }
-        : {
-            title: req.params.searchParam.substring(
-              1,
-              req.params.searchParam.length - 1
-            ),
-          }
+    const cachedAnimes = getRedisData(`Anime_${searchParam}`);
+    res.json(JSON.parse(cachedAnimes));
+  } catch (e) {
+    const dbAnimes = animeRepository.find(
+      param == "id" ? { id: searchParam } : { title: searchParam }
     );
-    setRedisData(`anime_${searchParam}`, result);
-  } finally {
-    await client.quit();
+    console.log(dbAnimes);
+    res.json(dbAnimes);
+    await setRedisData(`Anime_${param}`, dbAnimes);
   }
-  res.json(result);
 }
+
+async function addAnime(req, res) {
+  try {
+    const validateAnime = validateAnime(req.body);
+    const newAnime= await animeRepository.create(validateAnime);
+    const result = await animeRepository.save(newAnime);
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+    return;
+  }
+}
+
 
 module.exports = {
   getAnime,
   getAnimeById,
+  addAnime
 };
