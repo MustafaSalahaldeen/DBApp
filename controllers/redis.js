@@ -1,7 +1,6 @@
 const {client, connectRedis} = require("../infrastrucutre/data-source");
 
 async function getRedisData(key){
-    connectRedis();
     client.get(key, (err, data) => {
         if (err) {
             console.error("Error fetching data from Redis:", err);
@@ -17,8 +16,7 @@ async function getRedisData(key){
 }
 
 async function setRedisData(key, value){
-    connectRedis();
-    client.setex(key, 3600, JSON.stringify(value), (err) => {
+    client.setEx(key, 3600, JSON.stringify(value), (err) => {
         if (err) {
             console.error("Error setting data in Redis:", err);
         }
